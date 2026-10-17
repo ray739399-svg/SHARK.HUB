@@ -1,293 +1,386 @@
-
---[[
-    SHARK HUB | Mobile UI
-    Roblox Lua - interface e scanner visual
-    A coleta real exige integração autorizada com o jogo.
-]]
+-- SHARK HUB - Interface Premium Mobile-First
+-- Identidade visual: Tubarão + Tecnologia (Preto, Azul-Escuro, Azul Neon)
 
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Evitar duplicar a interface
-local old = playerGui:FindFirstChild("SharkHub")
-if old then
-    old:Destroy()
-end
+-- ============================================================
+-- PALETA DE CORES
+-- ============================================================
+local CORES = {
+    FundoPrincipal = Color3.fromRGB(8, 12, 20),      -- Preto azulado profundo
+    FundoSecundario = Color3.fromRGB(12, 20, 35),    -- Azul-escuro
+    FundoBotao = Color3.fromRGB(18, 30, 50),         -- Azul escuro para botões
+    AzulNeon = Color3.fromRGB(0, 180, 255),          -- Azul neon principal
+    AzulNeonEscuro = Color3.fromRGB(0, 100, 180),    -- Azul neon para hover
+    TextoPrincipal = Color3.fromRGB(240, 245, 255),  -- Branco levemente azulado
+    TextoSecundario = Color3.fromRGB(150, 170, 200), -- Cinza azulado
+    Perigo = Color3.fromRGB(255, 60, 80),            -- Vermelho para fechar
+}
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "SharkHub"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.Parent = playerGui
+-- ============================================================
+-- CONTAINER PRINCIPAL
+-- ============================================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SHARK_HUB"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
 
-local blue = Color3.fromRGB(0, 170, 255)
-local dark = Color3.fromRGB(10, 15, 25)
-local panelColor = Color3.fromRGB(15, 23, 38)
-local white = Color3.fromRGB(240, 248, 255)
-local muted = Color3.fromRGB(155, 180, 205)
+-- ============================================================
+-- PAINEL PRINCIPAL
+-- ============================================================
+local painel = Instance.new("Frame")
+painel.Name = "PainelPrincipal"
+painel.Size = UDim2.new(0, 240, 0, 320)
+painel.Position = UDim2.new(1, -260, 0.5, -160) -- Lado direito da tela
+painel.BackgroundColor3 = CORES.FundoPrincipal
+painel.BorderSizePixel = 0
+painel.Active = true
+painel.Draggable = false -- Vamos implementar arrasto customizado para mobile
+painel.Parent = screenGui
 
-local function create(className, props, parent)
-    local obj = Instance.new(className)
-    for key, value in pairs(props) do
-        obj[key] = value
-    end
-    obj.Parent = parent
-    return obj
-end
+-- Canto arredondado do painel
+local cantoPainel = Instance.new("UICorner")
+cantoPainel.CornerRadius = UDim.new(0, 12)
+cantoPainel.Parent = painel
 
-local main = create("Frame", {
-    Name = "Main",
-    Size = UDim2.fromOffset(225, 245),
-    Position = UDim2.new(1, -238, 0.35, 0),
-    BackgroundColor3 = dark,
-    BorderSizePixel = 0,
-    Active = true
-}, gui)
+-- Contorno luminoso (UIStroke)
+local contornoPainel = Instance.new("UIStroke")
+contornoPainel.Thickness = 1.5
+contornoPainel.Color = CORES.AzulNeon
+contornoPainel.Transparency = 0.3
+contornoPainel.Parent = painel
 
-create("UICorner", {CornerRadius = UDim.new(0, 12)}, main)
-create("UIStroke", {
-    Color = blue,
-    Thickness = 1.5,
-    Transparency = 0.15
-}, main)
+-- ============================================================
+-- CABEÇALHO (Título + Botões de Controle)
+-- ============================================================
+local cabecalho = Instance.new("Frame")
+cabecalho.Name = "Cabecalho"
+cabecalho.Size = UDim2.new(1, 0, 0, 40)
+cabecalho.BackgroundColor3 = CORES.FundoSecundario
+cabecalho.BorderSizePixel = 0
+cabecalho.Parent = painel
 
-local header = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 42),
-    BackgroundColor3 = panelColor,
-    BorderSizePixel = 0
-}, main)
-create("UICorner", {CornerRadius = UDim.new(0, 12)}, header)
+local cantoCabecalho = Instance.new("UICorner")
+cantoCabecalho.CornerRadius = UDim.new(0, 12)
+cantoCabecalho.Parent = cabecalho
 
-create("TextLabel", {
-    Size = UDim2.new(1, -76, 1, 0),
-    Position = UDim2.fromOffset(10, 0),
-    BackgroundTransparency = 1,
-    Text = "SHARK HUB",
-    TextColor3 = blue,
-    TextSize = 18,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, header)
+-- Máscara para o cabeçalho não vazar o canto de baixo
+local mascaraCabecalho = Instance.new("Frame")
+mascaraCabecalho.Size = UDim2.new(1, 0, 0.5, 0)
+mascaraCabecalho.Position = UDim2.new(0, 0, 0.5, 0)
+mascaraCabecalho.BackgroundColor3 = CORES.FundoSecundario
+mascaraCabecalho.BorderSizePixel = 0
+mascaraCabecalho.Parent = cabecalho
 
-local minimize = create("TextButton", {
-    Size = UDim2.fromOffset(28, 28),
-    Position = UDim2.new(1, -65, 0, 7),
-    BackgroundColor3 = Color3.fromRGB(30, 50, 70),
-    Text = "—",
-    TextColor3 = white,
-    TextSize = 18,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0
-}, header)
-create("UICorner", {CornerRadius = UDim.new(0, 7)}, minimize)
+-- Título SHARK HUB
+local titulo = Instance.new("TextLabel")
+titulo.Name = "Titulo"
+titulo.Size = UDim2.new(1, -80, 1, 0)
+titulo.Position = UDim2.new(0, 10, 0, 0)
+titulo.BackgroundTransparency = 1
+titulo.Text = "SHARK HUB"
+titulo.TextColor3 = CORES.AzulNeon
+titulo.TextSize = 16
+titulo.Font = Enum.Font.GothamBold
+titulo.TextXAlignment = Enum.TextXAlignment.Left
+titulo.Parent = cabecalho
 
-local close = create("TextButton", {
-    Size = UDim2.fromOffset(28, 28),
-    Position = UDim2.new(1, -32, 0, 7),
-    BackgroundColor3 = Color3.fromRGB(120, 35, 50),
-    Text = "×",
-    TextColor3 = white,
-    TextSize = 20,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0
-}, header)
-create("UICorner", {CornerRadius = UDim.new(0, 7)}, close)
+-- Símbolo de tubarão (texto simples, substitua por imagem se quiser)
+local simboloTubarao = Instance.new("TextLabel")
+simboloTubarao.Name = "Simbolo"
+simboloTubarao.Size = UDim2.new(0, 24, 0, 24)
+simboloTubarao.Position = UDim2.new(0, -28, 0.5, -12)
+simboloTubarao.BackgroundTransparency = 1
+simboloTubarao.Text = "🦈"
+simboloTubarao.TextColor3 = CORES.AzulNeon
+simboloTubarao.TextSize = 16
+simboloTubarao.Parent = titulo
 
-local content = create("Frame", {
-    Name = "Content",
-    Size = UDim2.new(1, -20, 1, -55),
-    Position = UDim2.fromOffset(10, 49),
-    BackgroundTransparency = 1
-}, main)
+-- Botão Minimizar
+local btnMinimizar = Instance.new("TextButton")
+btnMinimizar.Name = "BtnMinimizar"
+btnMinimizar.Size = UDim2.new(0, 28, 0, 28)
+btnMinimizar.Position = UDim2.new(1, -66, 0.5, -14)
+btnMinimizar.BackgroundColor3 = CORES.FundoBotao
+btnMinimizar.BorderSizePixel = 0
+btnMinimizar.Text = "−"
+btnMinimizar.TextColor3 = CORES.TextoPrincipal
+btnMinimizar.TextSize = 18
+btnMinimizar.Font = Enum.Font.GothamBold
+btnMinimizar.Parent = cabecalho
 
-create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 23),
-    BackgroundTransparency = 1,
-    Text = "EGG SCANNER  /  MOBILE",
-    TextColor3 = muted,
-    TextSize = 10,
-    Font = Enum.Font.GothamBold
-}, content)
+local cantoMin = Instance.new("UICorner")
+cantoMin.CornerRadius = UDim.new(0, 6)
+cantoMin.Parent = btnMinimizar
 
-local status = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 29),
-    Position = UDim2.fromOffset(0, 24),
-    BackgroundColor3 = Color3.fromRGB(20, 35, 50),
-    Text = "STATUS: AGUARDANDO",
-    TextColor3 = white,
-    TextSize = 10,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0
-}, content)
-create("UICorner", {CornerRadius = UDim.new(0, 7)}, status)
+-- Botão Fechar
+local btnFechar = Instance.new("TextButton")
+btnFechar.Name = "BtnFechar"
+btnFechar.Size = UDim2.new(0, 28, 0, 28)
+btnFechar.Position = UDim2.new(1, -34, 0.5, -14)
+btnFechar.BackgroundColor3 = CORES.FundoBotao
+btnFechar.BorderSizePixel = 0
+btnFechar.Text = "✕"
+btnFechar.TextColor3 = CORES.Perigo
+btnFechar.TextSize = 14
+btnFechar.Font = Enum.Font.GothamBold
+btnFechar.Parent = cabecalho
 
-local result = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 28),
-    Position = UDim2.fromOffset(0, 57),
-    BackgroundTransparency = 1,
-    Text = "Melhor ovo: não verificado",
-    TextColor3 = muted,
-    TextSize = 10,
-    Font = Enum.Font.Gotham,
-    TextWrapped = true
-}, content)
+local cantoFechar = Instance.new("UICorner")
+cantoFechar.CornerRadius = UDim.new(0, 6)
+cantoFechar.Parent = btnFechar
 
-local function makeButton(text, y, color)
-    local button = create("TextButton", {
-        Size = UDim2.new(1, 0, 0, 35),
-        Position = UDim2.fromOffset(0, y),
-        BackgroundColor3 = color,
-        Text = text,
-        TextColor3 = white,
-        TextSize = 11,
-        Font = Enum.Font.GothamBold,
-        BorderSizePixel = 0,
-        AutoButtonColor = true
-    }, content)
+-- ============================================================
+-- ÁREA DE CONTEÚDO (Botões de Função)
+-- ============================================================
+local conteudo = Instance.new("Frame")
+conteudo.Name = "Conteudo"
+conteudo.Size = UDim2.new(1, -16, 1, -56)
+conteudo.Position = UDim2.new(0, 8, 0, 48)
+conteudo.BackgroundTransparency = 1
+conteudo.Parent = painel
 
-    create("UICorner", {CornerRadius = UDim.new(0, 8)}, button)
-    return button
-end
+local layoutConteudo = Instance.new("UIListLayout")
+layoutConteudo.Padding = UDim.new(0, 8)
+layoutConteudo.SortOrder = Enum.SortOrder.LayoutOrder
+layoutConteudo.Parent = conteudo
 
-local scanButton = makeButton(
-    "⌕  SCAN MELHOR OVO", 88, Color3.fromRGB(0, 100, 175)
-)
-local collectButton = makeButton(
-    "▶  PEGAR OVO", 129, Color3.fromRGB(0, 135, 100)
-)
-local stopButton = makeButton(
-    "■  PARAR DE PEGAR", 170, Color3.fromRGB(125, 40, 55)
-)
+-- Função auxiliar para criar botões de função
+local function criarBotaoFuncao(nome, textoBotao, callback)
+    local botao = Instance.new("TextButton")
+    botao.Name = nome
+    botao.Size = UDim2.new(1, 0, 0, 40)
+    botao.BackgroundColor3 = CORES.FundoBotao
+    botao.BorderSizePixel = 0
+    botao.Text = textoBotao
+    botao.TextColor3 = CORES.TextoPrincipal
+    botao.TextSize = 13
+    botao.Font = Enum.Font.GothamMedium
+    botao.Parent = conteudo
 
-local running = false
-local minimized = false
-local previousHeight = main.Size
+    local cantoBotao = Instance.new("UICorner")
+    cantoBotao.CornerRadius = UDim.new(0, 8)
+    cantoBotao.Parent = botao
 
--- Scanner visual: procura objetos com nomes relacionados a ovos.
-local function scanEggs()
-    local candidates = {}
+    local contornoBotao = Instance.new("UIStroke")
+    contornoBotao.Thickness = 1
+    contornoBotao.Color = CORES.AzulNeonEscuro
+    contornoBotao.Transparency = 0.7
+    contornoBotao.Parent = botao
 
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") or obj:IsA("BasePart") then
-            local name = string.lower(obj.Name)
-
-            if string.find(name, "egg")
-                or string.find(name, "ovo") then
-
-                local position
-
-                if obj:IsA("Model") then
-                    position = obj:GetPivot().Position
-                else
-                    position = obj.Position
-                end
-
-                local character = player.Character
-                local root = character
-                    and character:FindFirstChild("HumanoidRootPart")
-
-                local distance = root
-                    and (position - root.Position).Magnitude
-                    or math.huge
-
-                table.insert(candidates, {
-                    name = obj.Name,
-                    distance = distance
-                })
-            end
-        end
-    end
-
-    table.sort(candidates, function(a, b)
-        return a.distance < b.distance
+    -- Efeitos de hover (PC)
+    botao.MouseEnter:Connect(function()
+        TweenService:Create(botao, TweenInfo.new(0.15), {
+            BackgroundColor3 = CORES.AzulNeonEscuro,
+            TextColor3 = CORES.AzulNeon
+        }):Play()
+        TweenService:Create(contornoBotao, TweenInfo.new(0.15), {
+            Transparency = 0.2
+        }):Play()
     end)
 
-    if #candidates == 0 then
-        result.Text = "Nenhum objeto com nome de ovo encontrado."
-        status.Text = "STATUS: SCAN CONCLUÍDO"
-        return
-    end
+    botao.MouseLeave:Connect(function()
+        TweenService:Create(botao, TweenInfo.new(0.15), {
+            BackgroundColor3 = CORES.FundoBotao,
+            TextColor3 = CORES.TextoPrincipal
+        }):Play()
+        TweenService:Create(contornoBotao, TweenInfo.new(0.15), {
+            Transparency = 0.7
+        }):Play()
+    end)
 
-    local best = candidates[1]
-    local distanceText = best.distance == math.huge
-        and "distância indisponível"
-        or string.format("%.0f studs", best.distance)
+    -- Efeito de toque (Mobile)
+    botao.MouseButton1Click:Connect(function()
+        -- Animação de clique
+        local tamanhoOriginal = botao.Size
+        TweenService:Create(botao, TweenInfo.new(0.08), {
+            Size = UDim2.new(1, -4, 0, 36)
+        }):Play()
+        task.wait(0.08)
+        TweenService:Create(botao, TweenInfo.new(0.08), {
+            Size = tamanhoOriginal
+        }):Play()
 
-    result.Text = "Objeto: " .. best.name .. " (" .. distanceText .. ")"
-    status.Text = "STATUS: " .. #candidates .. " OBJETO(S)"
+        if callback then
+            local sucesso, erro = pcall(callback)
+            if not sucesso then
+                warn("[SHARK HUB] Erro no botão '" .. textoBotao .. "': " .. tostring(erro))
+            end
+        end
+    end)
+
+    return botao
 end
 
-scanButton.Activated:Connect(function()
-    status.Text = "STATUS: ANALISANDO..."
-    result.Text = "Procurando objetos visíveis..."
-    task.spawn(scanEggs)
+-- ============================================================
+-- BOTÕES DE FUNÇÃO (Placeholders - Preencha com funções reais)
+-- ============================================================
+-- IMPORTANTE: Estes botões são apenas exemplos estruturais.
+-- Substitua os callbacks pelas funções reais que você encontrar
+-- em documentação autorizada ou código-fonte permitido.
+
+criarBotaoFuncao("BtnExemplo1", "Função 1 (Placeholder)", function()
+    print("[SHARK HUB] Botão 1 clicado - Substitua pela função real.")
 end)
 
-collectButton.Activated:Connect(function()
-    running = true
-    status.Text = "STATUS: COLETA NÃO INTEGRADA"
-    result.Text = "Conecte uma função autorizada de coleta."
+criarBotaoFuncao("BtnExemplo2", "Função 2 (Placeholder)", function()
+    print("[SHARK HUB] Botão 2 clicado - Substitua pela função real.")
 end)
 
-stopButton.Activated:Connect(function()
-    running = false
-    status.Text = "STATUS: PARADO"
-    result.Text = "Nenhuma ação automática está em execução."
+criarBotaoFuncao("BtnExemplo3", "Função 3 (Placeholder)", function()
+    print("[SHARK HUB] Botão 3 clicado - Substitua pela função real.")
 end)
 
-minimize.Activated:Connect(function()
-    minimized = not minimized
-    content.Visible = not minimized
-    main.Size = minimized
-        and UDim2.fromOffset(225, 42)
-        or previousHeight
-
-    minimize.Text = minimized and "+" or "—"
+criarBotaoFuncao("BtnConfig", "Configurações", function()
+    print("[SHARK HUB] Abrir configurações - Implemente aqui.")
 end)
 
-close.Activated:Connect(function()
-    running = false
-    gui:Destroy()
-end)
+-- ============================================================
+-- BOTÃO RESTAURAR (aparece quando minimizado)
+-- ============================================================
+local btnRestaurar = Instance.new("TextButton")
+btnRestaurar.Name = "BtnRestaurar"
+btnRestaurar.Size = UDim2.new(0, 44, 0, 44)
+btnRestaurar.Position = UDim2.new(1, -60, 0.5, -22)
+btnRestaurar.BackgroundColor3 = CORES.FundoPrincipal
+btnRestaurar.BorderSizePixel = 0
+btnRestaurar.Text = "🦈"
+btnRestaurar.TextColor3 = CORES.AzulNeon
+btnRestaurar.TextSize = 22
+btnRestaurar.Font = Enum.Font.GothamBold
+btnRestaurar.Visible = false
+btnRestaurar.Parent = screenGui
 
--- Arrastar o painel pelo cabeçalho, inclusive em telas touch.
-local dragging = false
-local dragStart
-local startPosition
+local cantoRestaurar = Instance.new("UICorner")
+cantoRestaurar.CornerRadius = UDim.new(0, 22)
+cantoRestaurar.Parent = btnRestaurar
 
-header.InputBegan:Connect(function(input)
+local contornoRestaurar = Instance.new("UIStroke")
+contornoRestaurar.Thickness = 2
+contornoRestaurar.Color = CORES.AzulNeon
+contornoRestaurar.Transparency = 0.2
+contornoRestaurar.Parent = btnRestaurar
+
+-- ============================================================
+-- LÓGICA DE ARRASTAR (Mobile + PC)
+-- ============================================================
+local arrastando = false
+local posicaoInicialInput
+local posicaoInicialPainel
+
+local function iniciarArrasto(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPosition = main.Position
+    or input.UserInputType == Enum.UserInputType.Touch then
+        arrastando = true
+        posicaoInicialInput = input.Position
+        posicaoInicialPainel = painel.Position
     end
-end)
+end
 
-header.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if not dragging then return end
-
+local function atualizarArrasto(input)
+    if not arrastando then return end
     if input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch then
-
-        local delta = input.Position - dragStart
-
-        main.Position = UDim2.new(
-            startPosition.X.Scale,
-            startPosition.X.Offset + delta.X,
-            startPosition.Y.Scale,
-            startPosition.Y.Offset + delta.Y
+    or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - posicaoInicialInput
+        painel.Position = UDim2.new(
+            posicaoInicialPainel.X.Scale,
+            posicaoInicialPainel.X.Offset + delta.X,
+            posicaoInicialPainel.Y.Scale,
+            posicaoInicialPainel.Y.Offset + delta.Y
         )
     end
+end
+
+local function finalizarArrasto(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        arrastando = false
+    end
+end
+
+cabecalho.InputBegan:Connect(iniciarArrasto)
+UserInputService.InputChanged:Connect(atualizarArrasto)
+UserInputService.InputEnded:Connect(finalizarArrasto)
+
+-- ============================================================
+-- LÓGICA DE MINIMIZAR / RESTAURAR / FECHAR
+-- ============================================================
+local minimizado = false
+local animacaoAtiva = false
+
+local function animarTamanho(objeto, tamanhoAlvo, tempo)
+    if animacaoAtiva then return end
+    animacaoAtiva = true
+    local tween = TweenService:Create(objeto, TweenInfo.new(tempo, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = tamanhoAlvo
+    })
+    tween:Play()
+    tween.Completed:Connect(function()
+        animacaoAtiva = false
+    end)
+end
+
+btnMinimizar.MouseButton1Click:Connect(function()
+    if minimizado then return end
+    minimizado = true
+    conteudo.Visible = false
+    animarTamanho(painel, UDim2.new(0, 240, 0, 40), 0.25)
+    task.wait(0.25)
+    painel.Visible = false
+    btnRestaurar.Visible = true
 end)
+
+btnRestaurar.MouseButton1Click:Connect(function()
+    if not minimizado then return end
+    minimizado = false
+    btnRestaurar.Visible = false
+    painel.Visible = true
+    painel.Size = UDim2.new(0, 240, 0, 40)
+    animarTamanho(painel, UDim2.new(0, 240, 0, 320), 0.25)
+    task.wait(0.25)
+    conteudo.Visible = true
+end)
+
+btnFechar.MouseButton1Click:Connect(function()
+    -- Animação de fechamento
+    local tween = TweenService:Create(painel, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1
+    })
+    tween:Play()
+    tween.Completed:Connect(function()
+        painel:Destroy()
+        btnRestaurar:Destroy()
+    end)
+end)
+
+-- ============================================================
+-- EFEITOS DE HOVER NOS BOTÕES DE CONTROLE
+-- ============================================================
+local function adicionarHoverBotaoControle(botao, corHover)
+    botao.MouseEnter:Connect(function()
+        TweenService:Create(botao, TweenInfo.new(0.15), {
+            BackgroundColor3 = corHover
+        }):Play()
+    end)
+    botao.MouseLeave:Connect(function()
+        TweenService:Create(botao, TweenInfo.new(0.15), {
+            BackgroundColor3 = CORES.FundoBotao
+        }):Play()
+    end)
+end
+
+adicionarHoverBotaoControle(btnMinimizar, CORES.AzulNeonEscuro)
+adicionarHoverBotaoControle(btnFechar, CORES.Perigo)
+
+-- ============================================================
+-- MENSAGEM DE BOAS-VINDAS (Opcional)
+-- ============================================================
+print("[SHARK HUB] Interface carregada com sucesso.")
+print("[SHARK HUB] Lembre-se: preencha os callbacks com funções reais autorizadas.")
