@@ -1,24 +1,7 @@
 
---[[
-    SHARK HUB | Roube um Ovo
-    Interface mobile + scanner de dados acessíveis
-    LocalScript para Roblox Studio
-
-    Inclui:
-    - UI azul neon e preta
-    - Painel arrastável por toque
-    - Minimizar, fechar e restaurar
-    - Seleção de biomas
-    - Busca por nome
-    - Scanner do maior valor de renda disponível
-    - Exibição de nome, raridade, renda, origem e imagem
-    - Cancelamento de buscas
-    - Botão de retorno à esteira com status informativo
-
-    Observação:
-    O scanner só encontra dados expostos ao cliente.
-    Teleporte e coleta exigem integração autorizada.
-]]
+-- SHARK HUB | Mobile Edition
+-- Interface compacta para Roblox Studio
+-- Scanner de ovos com dados acessíveis ao cliente
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -27,379 +10,399 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Evita interfaces duplicadas
-local oldGui = playerGui:FindFirstChild("SharkHub")
-if oldGui then
-    oldGui:Destroy()
+local previous = playerGui:FindFirstChild("SharkHub")
+if previous then
+    previous:Destroy()
 end
 
--- Cores
+-- CORES
 local BLUE = Color3.fromRGB(0, 145, 255)
 local CYAN = Color3.fromRGB(0, 220, 255)
-local DARK = Color3.fromRGB(6, 10, 20)
-local PANEL = Color3.fromRGB(15, 25, 43)
-local FIELD = Color3.fromRGB(21, 36, 58)
-local WHITE = Color3.fromRGB(240, 247, 255)
-local MUTED = Color3.fromRGB(145, 170, 200)
-local RED = Color3.fromRGB(175, 48, 60)
-local GREEN = Color3.fromRGB(25, 130, 100)
+local DARK = Color3.fromRGB(7, 11, 20)
+local PANEL = Color3.fromRGB(15, 25, 42)
+local WHITE = Color3.fromRGB(245, 249, 255)
+local MUTED = Color3.fromRGB(145, 165, 190)
+local GREEN = Color3.fromRGB(20, 130, 95)
+local RED = Color3.fromRGB(160, 45, 55)
 
-local BIOMES = {
-    "Todos os biomas",
-    "Cosmic",
-    "Flor de Cerejeira",
-    "Titan Temple",
-    "Anjos e Demônios"
-}
+local scanning = false
+local collecting = false
+local scanId = 0
+local bestResult = nil
 
-local selectedBiome = BIOMES[1]
-local searching = false
-local scanToken = 0
-local minimized = false
+-- FUNÇÕES DE UI
+local function corner(object, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = object
+end
 
--- Interface principal
+local function border(object, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thickness or 1
+    s.Parent = object
+end
+
+local function makeLabel(parent, text, size, position, dimensions, color)
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = color or WHITE
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = size
+    label.TextWrapped = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Position = position
+    label.Size = dimensions
+    label.Parent = parent
+    return label
+end
+
+local function makeButton(parent, text, color, position, dimensions)
+    local button = Instance.new("TextButton")
+    button.Text = text
+    button.TextColor3 = WHITE
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 12
+    button.BackgroundColor3 = color
+    button.Position = position
+    button.Size = dimensions
+    button.AutoButtonColor = true
+    button.Parent = parent
+
+    corner(button, 8)
+    return button
+end
+
+-- GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "SharkHub"
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 100
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = playerGui
 
-local function round(object, radius)
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius)
-    corner.Parent = object
-    return corner
-end
-
-local function stroke(object, color, thickness)
-    local border = Instance.new("UIStroke")
-    border.Color = color or BLUE
-    border.Thickness = thickness or 1
-    border.Parent = object
-    return border
-end
-
-local function makeLabel(parent, text, size, position, dimensions, color)
-    local item = Instance.new("TextLabel")
-    item.BackgroundTransparency = 1
-    item.Text = text
-    item.TextColor3 = color or WHITE
-    item.Font = Enum.Font.GothamMedium
-    item.TextSize = size
-    item.TextWrapped = true
-    item.TextXAlignment = Enum.TextXAlignment.Left
-    item.TextYAlignment = Enum.TextYAlignment.Center
-    item.Position = position
-    item.Size = dimensions
-    item.Parent = parent
-    return item
-end
-
-local function makeButton(parent, text, color, position, dimensions)
-    local item = Instance.new("TextButton")
-    item.Text = text
-    item.TextColor3 = WHITE
-    item.Font = Enum.Font.GothamBold
-    item.TextSize = 11
-    item.BackgroundColor3 = color
-    item.Position = position
-    item.Size = dimensions
-    item.AutoButtonColor = true
-    item.Active = true
-    item.Parent = parent
-
-    round(item, 8)
-    return item
-end
-
-local function makeTextBox(parent, placeholder, position, dimensions)
-    local item = Instance.new("TextBox")
-    item.PlaceholderText = placeholder
-    item.PlaceholderColor3 = MUTED
-    item.Text = ""
-    item.TextColor3 = WHITE
-    item.Font = Enum.Font.Gotham
-    item.TextSize = 11
-    item.ClearTextOnFocus = false
-    item.BackgroundColor3 = FIELD
-    item.Position = position
-    item.Size = dimensions
-    item.TextXAlignment = Enum.TextXAlignment.Left
-    item.Parent = parent
-
-    round(item, 8)
-    stroke(item, Color3.fromRGB(35, 75, 110), 1)
-
-    return item
-end
-
--- Botão flutuante
+-- BOTÃO FLUTUANTE
 local toggle = makeButton(
-    gui, "SHARK HUB", BLUE,
-    UDim2.new(0, 12, 0.42, 0),
-    UDim2.fromOffset(100, 40)
+    gui,
+    "SHARK",
+    BLUE,
+    UDim2.new(0, 12, 0.4, 0),
+    UDim2.fromOffset(76, 38)
 )
-toggle.TextSize = 12
-stroke(toggle, CYAN, 1.5)
+border(toggle, CYAN, 1.5)
 
--- Painel
+-- PAINEL PRINCIPAL
 local panel = Instance.new("Frame")
 panel.Name = "MainPanel"
-panel.Size = UDim2.fromOffset(320, 445)
-panel.Position = UDim2.new(0.5, -160, 0.5, -222)
+panel.Size = UDim2.fromOffset(290, 275)
+panel.Position = UDim2.new(0.5, -145, 0.5, -137)
 panel.BackgroundColor3 = DARK
 panel.ClipsDescendants = true
-panel.Active = true
 panel.Parent = gui
 
-round(panel, 12)
-stroke(panel, BLUE, 1.5)
+corner(panel, 12)
+border(panel, BLUE, 1.5)
 
--- Ajuste de escala para telas pequenas
-local uiScale = Instance.new("UIScale")
-uiScale.Parent = panel
-
-local function updateScale()
-    local camera = Workspace.CurrentCamera
-    if not camera then
-        return
-    end
-
-    local viewport = camera.ViewportSize
-    local scaleX = (viewport.X - 20) / 320
-    local scaleY = (viewport.Y - 30) / 445
-
-    uiScale.Scale = math.clamp(
-        math.min(scaleX, scaleY, 1),
-        0.65,
-        1
-    )
-end
-
-updateScale()
-
--- Cabeçalho
+-- CABEÇALHO
 local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 42)
+header.Size = UDim2.new(1, 0, 0, 40)
 header.BackgroundColor3 = PANEL
 header.Active = true
 header.Parent = panel
-round(header, 10)
+corner(header, 10)
 
 local title = makeLabel(
-    header, "SHARK HUB", 15,
+    header,
+    "SHARK HUB",
+    15,
     UDim2.new(0, 12, 0, 0),
-    UDim2.new(1, -100, 1, 0), CYAN
+    UDim2.new(1, -95, 1, 0),
+    CYAN
 )
-title.Font = Enum.Font.GothamBold
 
-local minimizeButton = makeButton(
+local minimize = makeButton(
     header, "—", DARK,
-    UDim2.new(1, -62, 0, 8),
+    UDim2.new(1, -61, 0, 7),
     UDim2.fromOffset(24, 26)
 )
 
-local closeButton = makeButton(
+local close = makeButton(
     header, "X", RED,
-    UDim2.new(1, -32, 0, 8),
+    UDim2.new(1, -31, 0, 7),
     UDim2.fromOffset(24, 26)
 )
 
--- Conteúdo rolável
-local content = Instance.new("ScrollingFrame")
-content.Name = "Content"
-content.Position = UDim2.new(0, 0, 0, 44)
-content.Size = UDim2.new(1, 0, 1, -46)
-content.BackgroundTransparency = 1
-content.BorderSizePixel = 0
-content.ScrollBarThickness = 3
-content.ScrollBarImageColor3 = CYAN
-content.CanvasSize = UDim2.new(0, 0, 0, 470)
-content.Active = true
-content.Parent = panel
-
--- Título do scanner
+-- RESULTADO DO SCANNER
 makeLabel(
-    content, "SCANNER DE OVOS", 11,
-    UDim2.new(0, 12, 0, 3),
-    UDim2.new(1, -24, 0, 20), MUTED
-)
-
--- Seleção de bioma
-local biomeButton = makeButton(
-    content, "BIOMA: Todos os biomas  v", BLUE,
-    UDim2.new(0, 10, 0, 27),
-    UDim2.new(1, -20, 0, 32)
-)
-biomeButton.TextSize = 10
-
-local biomeIndex = 1
-
-biomeButton.Activated:Connect(function()
-    biomeIndex += 1
-
-    if biomeIndex > #BIOMES then
-        biomeIndex = 1
-    end
-
-    selectedBiome = BIOMES[biomeIndex]
-    biomeButton.Text = "BIOMA: " .. selectedBiome .. "  v"
-end)
-
--- Pesquisa por nome
-local searchBox = makeTextBox(
-    content, "Pesquisar ovo ou pet...",
-    UDim2.new(0, 10, 0, 66),
-    UDim2.new(1, -20, 0, 31)
-)
-searchBox.ClearTextOnFocus = false
-
--- Cartão de resultado
-local card = Instance.new("Frame")
-card.Name = "ResultCard"
-card.Position = UDim2.new(0, 10, 0, 105)
-card.Size = UDim2.new(1, -20, 0, 126)
-card.BackgroundColor3 = PANEL
-card.Parent = content
-round(card, 10)
-stroke(card, Color3.fromRGB(28, 65, 100), 1)
-
-local imageFrame = Instance.new("Frame")
-imageFrame.Position = UDim2.new(0, 8, 0, 10)
-imageFrame.Size = UDim2.fromOffset(86, 104)
-imageFrame.BackgroundColor3 = FIELD
-imageFrame.Parent = card
-round(imageFrame, 8)
-
-local petImage = Instance.new("ImageLabel")
-petImage.Name = "PetImage"
-petImage.BackgroundTransparency = 1
-petImage.Size = UDim2.new(1, -6, 1, -6)
-petImage.Position = UDim2.new(0, 3, 0, 3)
-petImage.ScaleType = Enum.ScaleType.Fit
-petImage.Parent = imageFrame
-round(petImage, 6)
-
-local placeholder = makeLabel(
-    imageFrame, "SEM IMAGEM", 9,
-    UDim2.new(0, 2, 0, 0),
-    UDim2.new(1, -4, 1, 0), MUTED
-)
-placeholder.TextXAlignment = Enum.TextXAlignment.Center
-
-local petName = makeLabel(
-    card, "Aguardando busca...", 11,
-    UDim2.new(0, 102, 0, 7),
-    UDim2.new(1, -110, 0, 30), WHITE
-)
-
-local rarityLabel = makeLabel(
-    card, "Raridade: --", 10,
-    UDim2.new(0, 102, 0, 38),
-    UDim2.new(1, -110, 0, 20), CYAN
-)
-
-local incomeLabel = makeLabel(
-    card, "Renda/s: --", 10,
-    UDim2.new(0, 102, 0, 60),
-    UDim2.new(1, -110, 0, 20), WHITE
-)
-
-local originLabel = makeLabel(
-    card, "Origem: --", 9,
-    UDim2.new(0, 102, 0, 82),
-    UDim2.new(1, -110, 0, 28), MUTED
-)
-
--- Status
-local status = makeLabel(
-    content, "Status: pronto",
-    10, UDim2.new(0, 12, 0, 235),
-    UDim2.new(1, -24, 0, 32), MUTED
-)
-
--- Botões de busca e parada
-local scanButton = makeButton(
-    content, "BUSCAR MELHOR OVO", BLUE,
-    UDim2.new(0, 10, 0, 271),
-    UDim2.new(1, -20, 0, 34)
-)
-
-local stopButton = makeButton(
-    content, "PARAR BUSCA", Color3.fromRGB(45, 57, 77),
-    UDim2.new(0, 10, 0, 312),
-    UDim2.new(0.5, -15, 0, 32)
-)
-
-local backButton = makeButton(
-    content, "VOLTAR À ESTEIRA", Color3.fromRGB(20, 65, 100),
-    UDim2.new(0.5, 5, 0, 312),
-    UDim2.new(0.5, -15, 0, 32)
-)
-
--- Informações adicionais
-local info = makeLabel(
-    content,
-    "Os resultados dependem dos dados acessíveis ao cliente.",
-    9,
-    UDim2.new(0, 12, 0, 353),
-    UDim2.new(1, -24, 0, 36),
+    panel,
+    "MELHOR OVO ENCONTRADO",
+    10,
+    UDim2.new(0, 12, 0, 48),
+    UDim2.new(1, -24, 0, 18),
     MUTED
 )
 
-local footer = makeLabel(
-    content, "SHARK HUB  •  MOBILE",
-    9, UDim2.new(0, 12, 0, 401),
-    UDim2.new(1, -24, 0, 20), CYAN
+local resultName = makeLabel(
+    panel,
+    "Nenhum ovo selecionado",
+    12,
+    UDim2.new(0, 12, 0, 70),
+    UDim2.new(1, -24, 0, 28),
+    WHITE
 )
 
--- Scanner: lê apenas dados acessíveis
-local function getNumber(object, attributeName, childName)
-    local attribute = object:GetAttribute(attributeName)
+local resultRarity = makeLabel(
+    panel,
+    "Raridade: --",
+    10,
+    UDim2.new(0, 12, 0, 99),
+    UDim2.new(1, -24, 0, 18),
+    CYAN
+)
 
-    if attribute ~= nil then
-        local value = tonumber(attribute)
-        if value then
-            return value
+local resultIncome = makeLabel(
+    panel,
+    "Renda/s: --",
+    10,
+    UDim2.new(0, 12, 0, 119),
+    UDim2.new(1, -24, 0, 18),
+    WHITE
+)
+
+local status = makeLabel(
+    panel,
+    "Status: pronto",
+    10,
+    UDim2.new(0, 12, 0, 143),
+    UDim2.new(1, -24, 0, 25),
+    MUTED
+)
+
+-- BOTÕES PRINCIPAIS
+local scanButton = makeButton(
+    panel,
+    "SCAN MELHOR OVO",
+    BLUE,
+    UDim2.new(0, 10, 0, 174),
+    UDim2.new(1, -20, 0, 30)
+)
+
+local collectButton = makeButton(
+    panel,
+    "PEGAR OVO",
+    GREEN,
+    UDim2.new(0, 10, 0, 211),
+    UDim2.new(0.5, -15, 0, 32)
+)
+
+local stopButton = makeButton(
+    panel,
+    "PARAR DE PEGAR",
+    RED,
+    UDim2.new(0.5, 5, 0, 211),
+    UDim2.new(0.5, -15, 0, 32)
+)
+
+-- SCANNER
+local function scanBest(token)
+    local best = nil
+    local count = 0
+
+    for _, object in ipairs(Workspace:GetDescendants()) do
+        if token ~= scanId then
+            return nil, count, true
+        end
+
+        if object:IsA("Model") or object:IsA("BasePart") then
+            local name = string.lower(object.Name)
+
+            local isEgg =
+                string.find(name, "egg", 1, true)
+                or string.find(name, "ovo", 1, true)
+
+            if isEgg then
+                local income = tonumber(
+                    object:GetAttribute("MoneyPerSecond")
+                )
+
+                if income then
+                    count += 1
+
+                    if not best or income > best.income then
+                        best = {
+                            object = object,
+                            name = tostring(
+                                object:GetAttribute("PetName")
+                                or object.Name
+                            ),
+                            rarity = tostring(
+                                object:GetAttribute("Rarity")
+                                or "--"
+                            ),
+                            income = income
+                        }
+                    end
+                end
+            end
         end
     end
 
-    local child = object:FindFirstChild(childName)
-
-    if child and (
-        child:IsA("NumberValue")
-        or child:IsA("IntValue")
-    ) then
-        return child.Value
-    end
-
-    return nil
+    return best, count, false
 end
 
-local function getBiome(object)
-    local biome = object:GetAttribute("Biome")
-
-    if biome then
-        return tostring(biome)
+scanButton.Activated:Connect(function()
+    if scanning then
+        status.Text = "Status: scanner já está ativo"
+        return
     end
 
-    local current = object
+    scanning = true
+    scanId += 1
+    local myId = scanId
 
-    while current and current ~= Workspace do
-        local name = string.lower(current.Name)
+    scanButton.Text = "ESCANEANDO..."
+    status.Text = "Status: procurando ovos..."
 
-        if string.find(name, "cosmic") then
-            return "Cosmic"
-        elseif string.find(name, "cerejeira")
-            or string.find(name, "cherry") then
-            return "Flor de Cerejeira"
-        elseif string.find(name, "titan") then
-            return "Titan Temple"
-        elseif string.find(name, "demon")
-            or string.find(name, "angel")
-            or string.find(name, "anjo") then
-            return "Anjos e Demônios"
+    task.spawn(function()
+        local ok, result, count, cancelled = pcall(function()
+            return scanBest(myId)
+        end)
+
+        if myId ~= scanId then
+            return
+        end
+
+        scanning = false
+        scanButton.Text = "SCAN MELHOR OVO"
+
+        if not ok then
+            status.Text = "Erro ao consultar dados acessíveis"
+            return
+        end
+
+        if cancelled then
+            status.Text = "Busca cancelada"
+            return
+        end
+
+        if not result then
+            bestResult = nil
+            resultName.Text = "Nenhum resultado disponível"
+            resultRarity.Text = "Raridade: --"
+            resultIncome.Text = "Renda/s: --"
+            status.Text = "Objetos encontrados com renda: " .. count
+            return
+        end
+
+        bestResult = result
+        resultName.Text = result.name
+        resultRarity.Text = "Raridade: " .. result.rarity
+        resultIncome.Text = "Renda/s: " .. tostring(result.income)
+        status.Text = "Melhor resultado entre " .. count .. " ovos"
+    end)
+end)
+
+-- PEGAR OVO
+-- Este botão não executa coleta no jogo.
+-- A ação real requer integração autorizada do criador.
+collectButton.Activated:Connect(function()
+    if not bestResult then
+        status.Text = "Faça o scanner primeiro"
+        return
+    end
+
+    status.Text = "Ovo selecionado: " .. bestResult.name
+        .. " | Coleta oficial não configurada"
+end)
+
+-- PARAR
+stopButton.Activated:Connect(function()
+    scanId += 1
+    scanning = false
+    collecting = false
+    scanButton.Text = "SCAN MELHOR OVO"
+    status.Text = "Status: ações locais interrompidas"
+end)
+
+-- MINIMIZAR / RESTAURAR
+local minimized = false
+
+minimize.Activated:Connect(function()
+    minimized = not minimized
+
+    for _, object in ipairs({
+        resultName,
+        resultRarity,
+        resultIncome,
+        status,
+        scanButton,
+        collectButton,
+        stopButton
+    }) do
+        object.Visible = not minimized
+    end
+
+    panel.Size = minimized
+        and UDim2.fromOffset(290, 40)
+        or UDim2.fromOffset(290, 275)
+
+    minimize.Text = minimized and "+" or "—"
+end)
+
+-- FECHAR / REABRIR
+close.Activated:Connect(function()
+    panel.Visible = false
+    toggle.Visible = true
+end)
+
+toggle.Activated:Connect(function()
+    panel.Visible = true
+    toggle.Visible = false
+end)
+
+-- ARRASTAR NO CELULAR OU PC
+local dragging = false
+local dragStart
+local startPosition
+
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch
+        or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = panel.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (
+        input.UserInputType == Enum.UserInputType.Touch
+        or input.UserInputType == Enum.UserInputType.MouseMovement
+    ) then
+        local delta = input.Position - dragStart
+
+        panel.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+toggle.Visible = false
+panel.Visible = true
+
+print("[SHARK HUB] Menu carregado.")
+"
         end
 
         current = current.Parent
